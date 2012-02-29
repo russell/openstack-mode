@@ -184,9 +184,17 @@
                  (list :reboot (list :type type)))))))
 
 (defun openstack-server-reboot ()
+  (interactive)
   (openstack-server-reboot1 (openstack-instance-id))
-  (openstack-server-list-all)
-  (interactive))
+  (openstack-server-list-all))
+
+(defun openstack-server-terminate ()
+  (interactive)
+  (openstack-nova-call
+   (concat (openstack-service-catalog-filter "compute")
+           "/servers/" (format "%s" (openstack-instance-id)))
+   "DELETE")
+  (openstack-server-list-all))
 
 (defun openstack-message1 (id)
   (message (format "%s" id)))
@@ -314,6 +322,7 @@ If point is on a group name, this function operates on that group."
     (define-key map "p" 'openstack-backward-line)
     (define-key map "u" 'openstack-unmark-forward)
     (define-key map "R" 'openstack-server-reboot)
+    (define-key map "K" 'openstack-server-terminate)
     (define-key map (kbd "C-x C-f") 'openstack-ido-find-file)
     map)
   "Keymap for Openstack mode.")
@@ -327,6 +336,7 @@ If point is on a group name, this function operates on that group."
     (define-key map "t" 'openstack-message)
     (define-key map "u" 'openstack-unmark-forward)
     (define-key map "R" 'openstack-server-reboot)
+    (define-key map "K" 'openstack-server-terminate)
     (define-key map (kbd "C-x C-f") 'openstack-ido-find-file)
     map))
 
