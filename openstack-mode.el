@@ -196,13 +196,6 @@
    "DELETE")
   (openstack-server-list-all))
 
-(defun openstack-message1 (id)
-  (message (format "%s" id)))
-
-(defun openstack-message ()
-  (interactive)
-  (openstack-message1 (openstack-instance-id)))
-
 (defun openstack-server-list-all ()
   (interactive)
   (openstack-server-list :detail t))
@@ -333,7 +326,6 @@ If point is on a group name, this function operates on that group."
     (define-key map "n" 'openstack-forward-line)
     (define-key map "m" 'openstack-mark-forward)
     (define-key map "p" 'openstack-backward-line)
-    (define-key map "t" 'openstack-message)
     (define-key map "u" 'openstack-unmark-forward)
     (define-key map "R" 'openstack-server-reboot)
     (define-key map "K" 'openstack-server-terminate)
