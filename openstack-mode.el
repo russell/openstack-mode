@@ -306,6 +306,9 @@ If point is on a group name, this function operates on that group."
     (if ip
         (ido-find-file-in-dir (concat "/" ip ":"))
       (message "Instance has no ip address"))))
+(defun openstack-kill-buffer ()
+  (interactive)
+  (kill-buffer))
 
 (defvar openstack-mode-map
   (let ((map (make-keymap)))
@@ -314,7 +317,7 @@ If point is on a group name, this function operates on that group."
     (define-key map "m" 'openstack-mark-forward)
     (define-key map "p" 'openstack-backward-line)
     (define-key map "u" 'openstack-unmark-forward)
-    (define-key map "q" 'kill-buffer)
+    (define-key map "q" 'openstack-kill-buffer)
     (define-key map "R" 'openstack-server-reboot)
     (define-key map "K" 'openstack-server-terminate)
     (define-key map (kbd "C-x C-f") 'openstack-ido-find-file)
@@ -328,7 +331,7 @@ If point is on a group name, this function operates on that group."
     (define-key map "m" 'openstack-mark-forward)
     (define-key map "p" 'openstack-backward-line)
     (define-key map "u" 'openstack-unmark-forward)
-    (define-key map "q" 'kill-buffer)
+    (define-key map "q" 'openstack-kill-buffer)
     (define-key map "R" 'openstack-server-reboot)
     (define-key map "K" 'openstack-server-terminate)
     (define-key map (kbd "C-x C-f") 'openstack-ido-find-file)
