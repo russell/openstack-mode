@@ -72,7 +72,6 @@
 (defvar openstack-tenant nil
   "the openstack tenant.")
 
-
 (defun openstack-parse ()
   "Parse the result of a openstack request."
   (goto-char (point-min))
@@ -90,9 +89,19 @@
           (url-extensions-header nil))
       (with-current-buffer (url-retrieve-synchronously url)
         (point-min)
-        (let ((data (openstack-parse)))
-          (kill-buffer (current-buffer))
-          data))))
+        (if (or (equal url-http-response-status 204)
+                (equal url-http-content-length 0))
+            (kill-buffer (current-buffer))
+          (let ((data (openstack-parse)))
+            (kill-buffer (current-buffer))
+            data)))))
+
+(defun openstack-nova-call (url method &optional kvdata)
+  (openstack-call url method
+                  `(("x-auth-project-id" . ,(cdr (assoc 'name openstack-tenant)))
+                    ("x-auth-token" . ,openstack-token)
+                    ("Content-Type" . "application/json"))
+                  kvdata))
 
 (defun openstack-align ()
   (let ((inhibit-read-only t))
@@ -105,7 +114,6 @@
                    (modes . '(openstack-mode))
                    (repeat . t)
                    )))))
-
 
 (defun openstack-buffer-setup ()
   (let ((inhibit-read-only t))
@@ -157,19 +165,35 @@
     (set-buffer openstack-buffer)
     (let ((inhibit-read-only t))
       (erase-buffer))
-    (let* ((data (openstack-call
+    (let* ((data (openstack-nova-call
                   (concat (openstack-service-catalog-filter "compute")
                           "/servers"
                           (when detail "/detail"))
-                  "GET"
-                  `(("x-auth-project-id" . ,(cdr (assoc 'name openstack-tenant)))
-                    ("x-auth-token" . ,openstack-token)
-                    ("Content-Type" . "application/json")))))
+                  "GET")))
       (openstack-buffer-heading)
       (openstack-headings-widgets)
       (loop for instance across (cdr (assoc 'servers data))
             do (openstack-item-widget instance)))
     (openstack-align)))
+
+(defun* openstack-server-reboot1 (id &optional &key (type "SOFT"))
+    (let* ((data (openstack-nova-call
+                  (concat (openstack-service-catalog-filter "compute")
+                          "/servers/" (format "%s" id) "/action")
+                  "POST"
+                 (list :reboot (list :type type)))))))
+
+(defun openstack-server-reboot ()
+  (openstack-server-reboot1 (openstack-instance-id))
+  (openstack-server-list-all)
+  (interactive))
+
+(defun openstack-message1 (id)
+  (message (format "%s" id)))
+
+(defun openstack-message ()
+  (interactive)
+  (openstack-message1 (openstack-instance-id)))
 
 (defun openstack-server-list-all ()
   (interactive)
@@ -177,6 +201,7 @@
 
 (defun openstack-buffer-heading ()
   (widget-insert
+   ;TODO replace with tenant variable
    (propertize "pt-89" 'face 'openstack-header-face))
   (widget-insert "\n\n"))
 
@@ -205,12 +230,20 @@
     (widget-insert " ")
     (widget-insert (format "%s"
                            (cdr (assoc element item)))))
+  (widget-insert "\n")
+  (save-excursion
+    (let ((inhibit-read-only t))
+      (forward-line -1)
+      (put-text-property (line-beginning-position)
+                         (line-end-position)
+                         'openstack-properties item)
+      (put-text-property (line-beginning-position)
+                         (line-end-position)
+                         'openstack-mark mark))))
 
-  (let ((inhibit-read-only t))
-    (put-text-property (line-beginning-position)
-                       (line-end-position)
-                       'openstack-properties item))
-  (widget-insert "\n"))
+(defun openstack-instance-id ()
+  (cdr (assoc 'id (get-text-property (line-beginning-position)
+                                     'openstack-properties))))
 
 (defun openstack-instance-ip-addresses (instance)
   (loop for ip across
@@ -260,15 +293,8 @@ If point is on a group name, this function operates on that group."
     (save-excursion
       (delete-region (point) (1+ (line-end-position)))
       (openstack-item-widget properties mark)
-      (forward-line -1)
-      (put-text-property (line-beginning-position)
-                         (line-end-position)
-                         'openstack-properties properties)
-      (put-text-property (line-beginning-position)
-                         (line-end-position)
-                         'openstack-mark mark)))
-  (openstack-align))
-
+      (forward-line -1))
+  (openstack-align)))
 
 (defun openstack-ido-find-file ()
   "Like `ido-find-file', but default to the directory of the buffer at point."
@@ -287,20 +313,22 @@ If point is on a group name, this function operates on that group."
     (define-key map "m" 'openstack-mark-forward)
     (define-key map "p" 'openstack-backward-line)
     (define-key map "u" 'openstack-unmark-forward)
+    (define-key map "R" 'openstack-server-reboot)
     (define-key map (kbd "C-x C-f") 'openstack-ido-find-file)
     map)
   "Keymap for Openstack mode.")
 
-(setq   openstack-mode-map
+(setq openstack-mode-map
  (let ((map (make-keymap)))
     (define-key map "g" 'openstack-server-list-all)
     (define-key map "n" 'openstack-forward-line)
     (define-key map "m" 'openstack-mark-forward)
     (define-key map "p" 'openstack-backward-line)
+    (define-key map "t" 'openstack-message)
     (define-key map "u" 'openstack-unmark-forward)
+    (define-key map "R" 'openstack-server-reboot)
     (define-key map (kbd "C-x C-f") 'openstack-ido-find-file)
-    map)
-)
+    map))
 
 (defun openstack-mode ()
   (kill-all-local-variables)
