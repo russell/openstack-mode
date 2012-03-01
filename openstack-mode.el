@@ -86,18 +86,18 @@
      nil)))
 
 (defun openstack-call (url method headers &optional kvdata)
-    (let ((url-request-method method)
-          (url-request-extra-headers headers)
-          (url-request-data (if kvdata (json-encode kvdata) nil))
-          (url-extensions-header nil))
-      (with-current-buffer (url-retrieve-synchronously url)
-        (point-min)
-        (if (or (equal url-http-response-status 204)
-                (equal url-http-content-length 0))
-            (kill-buffer (current-buffer))
-          (let ((data (openstack-parse)))
-            (kill-buffer (current-buffer))
-            data)))))
+  (let ((url-request-method method)
+        (url-request-extra-headers headers)
+        (url-request-data (if kvdata (json-encode kvdata) nil))
+        (url-extensions-header nil))
+    (with-current-buffer (url-retrieve-synchronously url)
+      (point-min)
+      (if (or (equal url-http-response-status 204)
+              (equal url-http-content-length 0))
+          (kill-buffer (current-buffer))
+        (let ((data (openstack-parse)))
+          (kill-buffer (current-buffer))
+          data)))))
 
 (defun openstack-nova-call (url method &optional kvdata)
   (openstack-call
@@ -161,7 +161,7 @@
     (set-buffer openstack-buffer)
     (let* ((tenant (if tenant
                        tenant
-                       openstack-default-tenant))
+                     openstack-default-tenant))
            (data (openstack-call
                   (concat openstack-auth-url "/tokens")
                   "POST"
@@ -182,10 +182,10 @@
               openstack-tenant (cdr (assoc 'tenant (assoc 'token access))))))))
 
 (defun openstack-tenants-list ()
-    (let* ((data (openstack-keystone-call
-                  "/tenants"
-                  "GET")))
-      data))
+  (let* ((data (openstack-keystone-call
+                "/tenants"
+                "GET")))
+    data))
 
 (defun* openstack-server-list (&optional &key detail)
   (when (get-buffer openstack-buffer)
@@ -204,10 +204,10 @@
       (goto-char current-point))))
 
 (defun* openstack-server-reboot1 (id &optional &key (type "SOFT"))
-    (let* ((data (openstack-nova-call
-                  (concat "/servers/" (format "%s" id) "/action")
-                  "POST"
-                 (list :reboot (list :type type)))))))
+  (let* ((data (openstack-nova-call
+                (concat "/servers/" (format "%s" id) "/action")
+                "POST"
+                (list :reboot (list :type type)))))))
 
 (defun openstack-server-reboot ()
   (interactive)
@@ -327,14 +327,14 @@ If point is on a group name, this function operates on that group."
       (delete-region (point) (1+ (line-end-position)))
       (openstack-item-widget properties mark)
       (forward-line -1))
-  (openstack-align)))
+    (openstack-align)))
 
 (defun openstack-ido-find-file ()
   "Like `ido-find-file', but default to the directory of the buffer at point."
   (interactive)
   (let ((ip (car (openstack-instance-ip-addresses
                   (get-text-property (line-beginning-position)
-                                          'openstack-properties)))))
+                                     'openstack-properties)))))
     (if ip
         (ido-find-file-in-dir (concat "/" ip ":"))
       (message "Instance has no ip address"))))
@@ -357,17 +357,17 @@ If point is on a group name, this function operates on that group."
   "Keymap for Openstack mode.")
 
 (setq openstack-mode-map
- (let ((map (make-keymap)))
-    (define-key map "g" 'openstack-server-list-all)
-    (define-key map "n" 'openstack-forward-line)
-    (define-key map "m" 'openstack-mark-forward)
-    (define-key map "p" 'openstack-backward-line)
-    (define-key map "u" 'openstack-unmark-forward)
-    (define-key map "q" 'openstack-kill-buffer)
-    (define-key map "R" 'openstack-server-reboot)
-    (define-key map "K" 'openstack-server-terminate)
-    (define-key map (kbd "C-x C-f") 'openstack-ido-find-file)
-    map))
+      (let ((map (make-keymap)))
+        (define-key map "g" 'openstack-server-list-all)
+        (define-key map "n" 'openstack-forward-line)
+        (define-key map "m" 'openstack-mark-forward)
+        (define-key map "p" 'openstack-backward-line)
+        (define-key map "u" 'openstack-unmark-forward)
+        (define-key map "q" 'openstack-kill-buffer)
+        (define-key map "R" 'openstack-server-reboot)
+        (define-key map "K" 'openstack-server-terminate)
+        (define-key map (kbd "C-x C-f") 'openstack-ido-find-file)
+        map))
 
 (defun openstack-mode ()
   (kill-all-local-variables)
