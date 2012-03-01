@@ -139,7 +139,7 @@
     (push (cons id widget) openstack-form-widgets)))
 
 (defun openstack-form-get (id)
-  (cdr (assoc id widget-demo-form)))
+  (cdr (assoc id openstack-form-widgets)))
 
 (defun* openstack-service-catalog-filter (type &optional &key
                                                region
@@ -230,8 +230,9 @@
   (openstack-form-create
    'tenant
    (widget-create 'editable-field
-                  ;; :action (lambda (wid &rest ignore)
-                  ;;           (message wid))
+                  :action (lambda (wid &rest ignore)
+                            (openstack-token-init (widget-value wid))
+                            (openstack-server-list-all))
                   :format "Tenant: %v"
                   "pt-89"))
   ;;   (propertize "pt-89" 'face 'openstack-header-face))
