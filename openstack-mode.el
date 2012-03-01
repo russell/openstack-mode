@@ -72,6 +72,9 @@
 (defvar openstack-tenant nil
   "the openstack tenant.")
 
+(defvar openstack-form-widgets nil
+  "A table for lookup widget created in current buffer.")
+
 (defun openstack-parse ()
   "Parse the result of a openstack request."
   (goto-char (point-min))
@@ -130,6 +133,14 @@
     (erase-buffer))
   (remove-overlays))
 
+(defun openstack-form-create (id widget)
+  (if (assoc id openstack-form-widgets)
+      (error "identifier %S is used!" id)
+    (push (cons id widget) openstack-form-widgets)))
+
+(defun openstack-form-get (id)
+  (cdr (assoc id widget-demo-form)))
+
 (defun* openstack-service-catalog-filter (type &optional &key
                                                region
                                                (url 'publicURL))
@@ -179,16 +190,18 @@
 (defun* openstack-server-list (&optional &key detail)
   (when (get-buffer openstack-buffer)
     (set-buffer openstack-buffer)
-    (let ((inhibit-read-only t))
-      (erase-buffer))
     (let* ((data (openstack-nova-call
                   (concat "/servers" (when detail "/detail"))
-                  "GET")))
-      (openstack-buffer-heading)
+                  "GET"))
+           (current-point (point))
+           (inhibit-read-only t))
+      (goto-line 3)
+      (delete-region (point) (point-max))
       (openstack-headings-widgets)
       (loop for instance across (cdr (assoc 'servers data))
-            do (openstack-item-widget instance)))
-    (openstack-align)))
+            do (openstack-item-widget instance))
+      (openstack-align)
+      (goto-char current-point))))
 
 (defun* openstack-server-reboot1 (id &optional &key (type "SOFT"))
     (let* ((data (openstack-nova-call
@@ -213,10 +226,17 @@
   (openstack-server-list :detail t))
 
 (defun openstack-buffer-heading ()
-  (widget-insert
-   ;TODO replace with tenant variable
-   (propertize "pt-89" 'face 'openstack-header-face))
-  (widget-insert "\n\n"))
+  ;;TODO replace with tenant variable
+  (openstack-form-create
+   'tenant
+   (widget-create 'editable-field
+                  ;; :action (lambda (wid &rest ignore)
+                  ;;           (message wid))
+                  :format "Tenant: %v"
+                  "pt-89"))
+  ;;   (propertize "pt-89" 'face 'openstack-header-face))
+  (widget-insert "\n")
+  (widget-setup))
 
 (defun openstack-headings-widgets ()
   (dolist (element (cons 'id (cons 'name openstack-instance-display)))
@@ -352,12 +372,13 @@ If point is on a group name, this function operates on that group."
 (defun openstack-mode ()
   (kill-all-local-variables)
   (setq truncate-lines t)
-  (setq buffer-read-only t)
   (use-local-map openstack-mode-map)
   (setq major-mode 'openstack-mode)
+  (make-local-variable 'openstack-form-widgets)
   (setq mode-name "Openstack")
   (openstack-buffer-setup)
   (openstack-token-init)
+  (openstack-buffer-heading)
   (openstack-server-list-all))
 
 (put 'openstack-mode 'mode-class 'special)
