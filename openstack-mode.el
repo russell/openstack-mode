@@ -204,8 +204,7 @@
 (defun openstack-server-terminate ()
   (interactive)
   (openstack-nova-call
-   (concat (openstack-service-catalog-filter "compute")
-           "/servers/" (format "%s" (openstack-instance-id)))
+   (concat ("/servers/" (format "%s" (openstack-instance-id))))
    "DELETE")
   (openstack-server-list-all))
 
