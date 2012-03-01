@@ -97,9 +97,19 @@
             data)))))
 
 (defun openstack-nova-call (url method &optional kvdata)
-  (openstack-call url method
-                  `(("x-auth-project-id" . ,(cdr (assoc 'name openstack-tenant)))
-                    ("x-auth-token" . ,openstack-token)
+  (openstack-call
+   (concat (openstack-service-catalog-filter "compute")
+           url)
+   method
+   `(("x-auth-project-id" . ,(cdr (assoc 'name openstack-tenant)))
+     ("x-auth-token" . ,openstack-token)
+     ("Content-Type" . "application/json"))
+   kvdata))
+
+(defun openstack-keystone-call (url method &optional kvdata)
+  (openstack-call (concat openstack-auth-url url)
+                  method
+                  `(("x-auth-token" . ,openstack-token)
                     ("Content-Type" . "application/json"))
                   kvdata))
 
@@ -160,15 +170,19 @@
               openstack-token-expiry (cdr (assoc 'expires (assoc 'token access)))
               openstack-tenant (cdr (assoc 'tenant (assoc 'token access))))))))
 
+(defun openstack-tenants-list ()
+    (let* ((data (openstack-keystone-call
+                  "/tenants"
+                  "GET")))
+      data))
+
 (defun* openstack-server-list (&optional &key detail)
   (when (get-buffer openstack-buffer)
     (set-buffer openstack-buffer)
     (let ((inhibit-read-only t))
       (erase-buffer))
     (let* ((data (openstack-nova-call
-                  (concat (openstack-service-catalog-filter "compute")
-                          "/servers"
-                          (when detail "/detail"))
+                  (concat "/servers" (when detail "/detail"))
                   "GET")))
       (openstack-buffer-heading)
       (openstack-headings-widgets)
@@ -178,8 +192,7 @@
 
 (defun* openstack-server-reboot1 (id &optional &key (type "SOFT"))
     (let* ((data (openstack-nova-call
-                  (concat (openstack-service-catalog-filter "compute")
-                          "/servers/" (format "%s" id) "/action")
+                  (concat "/servers/" (format "%s" id) "/action")
                   "POST"
                  (list :reboot (list :type type)))))))
 
