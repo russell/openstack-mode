@@ -306,10 +306,13 @@ If point is on a group name, this function operates on that group."
   (openstack-set-mark ?\s))
 
 (defun openstack-set-mark (mark)
-  (let ((inhibit-read-only t))
-    (openstack-set-mark-1 mark)
-    (openstack-redisplay-current)
-    (beginning-of-line)))
+  (if
+      (get-text-property (line-beginning-position)
+                         'openstack-properties)
+      (let ((inhibit-read-only t))
+        (openstack-set-mark-1 mark)
+        (openstack-redisplay-current)
+        (beginning-of-line))))
 
 (defun openstack-set-mark-1 (mark)
   (let ((beg (line-beginning-position))
