@@ -118,15 +118,11 @@
 
 (defun openstack-align ()
   (let ((inhibit-read-only t))
-    (align (point-min) (point-max)
-           'entire
-           (list '(text-column
-                   ;; TODO update re to include custom mark character
-                   (regexp . "\\(^>\\?\\|\\S-\\)\\([ 	]+\\)\\(\\S-\\|$\\)")
-                   (group . 2)
-                   (modes . '(openstack-mode))
-                   (repeat . t)
-                   )))))
+    (save-excursion
+      (goto-char (point-min))
+      (forward-line 1)
+      (align-regexp (point) (point-max)
+                    "\\(\\s-*\\)|" 1 1 t))))
 
 (defun openstack-buffer-setup ()
   (let ((inhibit-read-only t))
@@ -240,13 +236,15 @@
   (widget-setup))
 
 (defun openstack-headings-widgets ()
-  (dolist (element (cons 'id (cons 'name openstack-instance-display)))
-    (widget-insert " ")
+  (widget-insert (format " %s" 'id))
+  (dolist (element (cons 'name openstack-instance-display))
+    (widget-insert " | ")
     (widget-insert (format "%s"
                            element)))
   (widget-insert "\n")
-  (dolist (element (cons 'id (cons 'name openstack-instance-display)))
-    (widget-insert " ")
+  (widget-insert (format " %s" (make-string (length (symbol-name 'id)) ?-)))
+  (dolist (element (cons 'name openstack-instance-display))
+    (widget-insert " | ")
     (widget-insert (format "%s"
                            (make-string (length (symbol-name element)) ?-))))
   (widget-insert "\n"))
@@ -255,13 +253,13 @@
   (widget-insert mark)
   (widget-insert (format "%s"
                          (cdr (assoc 'id item))))
-  (widget-insert " ")
+  (widget-insert " | ")
   (widget-insert (propertize
                   (format "%s"
                           (cdr (assoc 'name item)))
                   'face 'openstack-title-face))
   (dolist (element openstack-instance-display)
-    (widget-insert " ")
+    (widget-insert " | ")
     (widget-insert (format "%s"
                            (cdr (assoc element item)))))
   (widget-insert "\n")
