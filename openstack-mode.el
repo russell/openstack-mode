@@ -178,10 +178,12 @@
               openstack-tenant (cdr (assoc 'tenant (assoc 'token access))))))))
 
 (defun openstack-tenants-list ()
-  (let* ((data (openstack-keystone-call
-                "/tenants"
-                "GET")))
-    data))
+  (let* ((data (cdr (assoc 'tenants
+                           (openstack-keystone-call
+                            "/tenants"
+                            "GET"))))
+         (values (cdr (assoc 'values data))))
+    values))
 
 (defun* openstack-server-list (&optional &key detail)
   (when (get-buffer openstack-buffer)
@@ -222,18 +224,34 @@
   (openstack-server-list :detail t))
 
 (defun openstack-buffer-heading ()
-  ;;TODO replace with tenant variable
   (openstack-form-create
    'tenant
    (widget-create 'editable-field
                   :action (lambda (wid &rest ignore)
+                            (message (widget-value wid))
                             (openstack-token-init (widget-value wid))
                             (openstack-server-list-all))
                   :format "Tenant: %v"
-                  "pt-89"))
+                  :help-echo "TAB: complete field; RET: enter value"
+                  :complete-function #'openstack-complete-tenant
+                  :keymap (let ((map (copy-keymap widget-field-keymap)))
+                            (define-key map "\t" 'widget-complete)
+                            map)
+                  openstack-default-tenant))
   ;;   (propertize "pt-89" 'face 'openstack-header-face))
   (widget-insert "\n")
   (widget-setup))
+
+(defun* openstack-complete-tenant ()
+  (interactive)
+  (let* ((predicate (widget-value (widget-at)))
+         (beg (save-excursion
+               (search-backward predicate)))
+         (tenants-alist (let ((count 0))
+                          (loop for tenant across (openstack-tenants-list)
+                                do (setq count (1+ count))
+                                collect (list (cdr (assoc 'name tenant)) count)))))
+    (completion-in-region beg (point) tenants-alist)))
 
 (defun openstack-headings-widgets ()
   (widget-insert (format " %s" 'id))
