@@ -350,14 +350,16 @@ If point is on a group name, this function operates on that group."
     (openstack-align)))
 
 (defun openstack-ido-find-file ()
-  "Like `ido-find-file', but default to the directory of the buffer at point."
+  "Like `ido-find-file', but default to the directory of the
+instance at point."
   (interactive)
   (let ((ip (car (openstack-instance-ip-addresses
                   (get-text-property (line-beginning-position)
                                      'openstack-properties)))))
     (if ip
         (ido-find-file-in-dir (concat "/" ip ":"))
-      (message "Instance has no ip address"))))
+      (ido-find-file))))
+
 (defun openstack-kill-buffer ()
   (interactive)
   (kill-buffer))
