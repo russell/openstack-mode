@@ -134,9 +134,6 @@
       (error "identifier %S is used!" id)
     (push (cons id widget) openstack-form-widgets)))
 
-(defun openstack-form-get (id)
-  (cdr (assoc id openstack-form-widgets)))
-
 (defun* openstack-service-catalog-filter (type &optional &key
                                                region
                                                (url 'publicURL))
