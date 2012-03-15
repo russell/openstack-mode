@@ -116,6 +116,12 @@
                     ("Content-Type" . "application/json"))
                   kvdata))
 
+(defun openstack-keystone-auth (kvdata)
+  (openstack-call (concat openstack-auth-url "/tokens")
+                  "POST"
+                  '(("Content-Type" . "application/json"))
+                  kvdata))
+
 (defun openstack-align ()
   (let ((inhibit-read-only t))
     (save-excursion
@@ -155,10 +161,7 @@
     (let* ((tenant (if tenant
                        tenant
                      openstack-default-tenant))
-           (data (openstack-call
-                  (concat openstack-auth-url "/tokens")
-                  "POST"
-                  '(("Content-Type" . "application/json"))
+           (data (openstack-keystone-auth
                   (list
                    :auth
                    (list
