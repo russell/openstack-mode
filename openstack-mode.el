@@ -57,6 +57,9 @@
 (defconst openstack-buffer "*Openstack*"
   "Openstack buffer name.")
 
+(defconst openstack-console-log-buffer "*Openstack: Console Log*"
+  "Openstack console log buffer name.")
+
 (defvar openstack-token nil
   "the openstack token.")
 
@@ -223,6 +226,27 @@
   (interactive)
   (openstack-server-list :detail t))
 
+(defun* openstack-server-console-log ()
+  (interactive)
+  (let ((instance-id (openstack-instance-id)))
+        (switch-to-buffer openstack-console-log-buffer)
+        (when (get-buffer openstack-console-log-buffer)
+          (set-buffer openstack-console-log-buffer)
+          (let* ((data (openstack-nova-call
+                        "/extras/consoles"
+                        "POST"
+                        (list :console (list :type "text"
+                                             :server_id instance-id))))
+                 (current-point (point))
+                 (inhibit-read-only t))
+            (insert (assoc-default 'output (assoc 'console data)))
+            (goto-char (point-min))
+            (replace-string "" ""))
+          (use-local-map openstack-mode-map)
+          (setq mode-name "Console-Log")
+          (setq buffer-read-only t)
+          (reposition-window))))
+
 (defun openstack-buffer-heading ()
   (openstack-form-create
    'tenant
@@ -365,30 +389,31 @@ instance at point."
   (kill-buffer))
 
 (defvar openstack-mode-map
-  (let ((map (make-keymap)))
-    (define-key map "g" 'openstack-server-list-all)
-    (define-key map "n" 'openstack-forward-line)
-    (define-key map "m" 'openstack-mark-forward)
-    (define-key map "p" 'openstack-backward-line)
-    (define-key map "u" 'openstack-unmark-forward)
-    (define-key map "q" 'openstack-kill-buffer)
-    (define-key map "R" 'openstack-server-reboot)
-    (define-key map "K" 'openstack-server-terminate)
-    (define-key map (kbd "C-x C-f") 'openstack-ido-find-file)
-    map)
+  nil
   "Keymap for Openstack mode.")
 
 (setq openstack-mode-map
       (let ((map (make-keymap)))
+        (define-key map (kbd "RET") 'openstack-instance-details)
         (define-key map "g" 'openstack-server-list-all)
         (define-key map "n" 'openstack-forward-line)
         (define-key map "m" 'openstack-mark-forward)
         (define-key map "p" 'openstack-backward-line)
         (define-key map "u" 'openstack-unmark-forward)
         (define-key map "q" 'openstack-kill-buffer)
+        (define-key map "l" 'openstack-server-console-log)
         (define-key map "R" 'openstack-server-reboot)
         (define-key map "K" 'openstack-server-terminate)
         (define-key map (kbd "C-x C-f") 'openstack-ido-find-file)
+        map))
+
+(defvar openstack-console-log-mode-map
+  nil
+  "Keymap for Openstack mode.")
+
+(setq openstack-console-log-mode-map
+      (let ((map (make-keymap)))
+        (define-key map "q" 'openstack-kill-buffer)
         map))
 
 (defun openstack-mode ()
