@@ -29,7 +29,7 @@
   :safe 'stringp
   :group 'openstack-mode)
 
-(defcustom openstack-instance-display '(user_id status)
+(defcustom openstack-instance-display '(user_id status (attrs host))
   "a list of extra columns to display."
   :type 'sexp
   :group 'openstack-mode)
@@ -60,70 +60,11 @@
 (defconst openstack-console-log-buffer "*Openstack: Console Log*"
   "Openstack console log buffer name.")
 
-(defvar openstack-token nil
-  "the openstack token.")
-
-(defvar openstack-token-expiry nil
-  "the openstack token.")
-
-(defvar openstack-service-catalog nil
-  "the openstack service catalog.")
-
-(defvar openstack-user nil
-  "the openstack user.")
-
-(defvar openstack-tenant nil
-  "the openstack tenant.")
+(defvar openstack-instance nil
+  "the openstack instance.")
 
 (defvar openstack-form-widgets nil
   "A table for lookup widget created in current buffer.")
-
-(defun openstack-parse ()
-  "Parse the result of a openstack request."
-  (goto-char (point-min))
-  (condition-case nil
-      (when (search-forward-regexp "^$" nil t)
-        (json-read))
-    (error
-     (message "openstack: Could not read the response.")
-     nil)))
-
-(defun openstack-call (url method headers &optional kvdata)
-  (let ((url-request-method method)
-        (url-request-extra-headers headers)
-        (url-request-data (if kvdata (json-encode kvdata) nil))
-        (url-extensions-header nil))
-    (with-current-buffer (url-retrieve-synchronously url)
-      (point-min)
-      (if (or (equal url-http-response-status 204)
-              (equal url-http-content-length 0))
-          (kill-buffer (current-buffer))
-        (let ((data (openstack-parse)))
-          (kill-buffer (current-buffer))
-          data)))))
-
-(defun openstack-nova-call (url method &optional kvdata)
-  (openstack-call
-   (concat (openstack-service-catalog-filter "compute")
-           url)
-   method
-   `(("x-auth-project-id" . ,(cdr (assoc 'name openstack-tenant)))
-     ("x-auth-token" . ,openstack-token)
-     ("Content-Type" . "application/json"))
-   kvdata))
-
-(defun openstack-keystone-call (url method &optional kvdata)
-  (openstack-call (concat openstack-auth-url url)
-                  method
-                  `(("x-auth-token" . ,openstack-token)
-                    ("Content-Type" . "application/json"))
-                  kvdata))
-
-(defun openstack-keystone-auth (kvdata)
-  (openstack-call (concat openstack-auth-url "/tokens")
-                  "POST"
-                  '(("Content-Type" . "application/json"))
-                  kvdata))
 
 (defun openstack-align ()
   (let ((inhibit-read-only t))
@@ -132,6 +73,16 @@
       (forward-line 1)
       (align-regexp (point) (point-max)
                     "\\(\\s-*\\)|" 1 1 t))))
+
+(defun openstack-multi-assoc (keys alist)
+  (if (not (listp keys))
+      (assoc-default keys alist)
+    (let ((current-alist alist)
+          (remaining-keys keys))
+      (while (> (length remaining-keys) 1)
+        (setq current-alist (assoc-default (car remaining-keys) current-alist))
+        (setq remaining-keys (cdr remaining-keys)))
+      (assoc-default (car remaining-keys) current-alist))))
 
 (defun openstack-buffer-setup ()
   (let ((inhibit-read-only t))
@@ -143,57 +94,16 @@
       (error "identifier %S is used!" id)
     (push (cons id widget) openstack-form-widgets)))
 
-(defun* openstack-service-catalog-filter (type &optional &key
-                                               region
-                                               (url 'publicURL))
-  "return the first url that matches the filter"
-  (car
-   (loop for endpoint across
-         (cdr (assoc 'endpoints
-                     (car
-                      (loop for x across openstack-service-catalog
-                            when (equal (cdr (assoc 'type x)) type)
-                            collect x))))
-         when (if region (equal (cdr (assoc 'region endpoint)) region)
-                t)
-         collect (cdr (assoc url endpoint)))))
+(defun openstack-server-reboot ()
+  (interactive)
+  (openstack-server-reboot1 (openstack-instance-id))
+  (openstack-server-list-all))
 
-(defun openstack-token-init (&optional tenant)
+(defun openstack-server-list-all ()
+  (interactive)
   (when (get-buffer openstack-buffer)
     (set-buffer openstack-buffer)
-    (let* ((tenant (if tenant
-                       tenant
-                     openstack-default-tenant))
-           (data (openstack-keystone-auth
-                  (list
-                   :auth
-                   (list
-                    :tenantName tenant
-                    :passwordCredentials
-                    (list
-                     :username openstack-username
-                     :password openstack-password))))))
-      (let ((access (assoc 'access data)))
-        (setq openstack-service-catalog (cdr (assoc 'serviceCatalog access))
-              openstack-user (cdr (assoc 'user access))
-              openstack-token (cdr (assoc 'id (assoc 'token access)))
-              openstack-token-expiry (cdr (assoc 'expires (assoc 'token access)))
-              openstack-tenant (cdr (assoc 'tenant (assoc 'token access))))))))
-
-(defun openstack-tenants-list ()
-  (let* ((data (cdr (assoc 'tenants
-                           (openstack-keystone-call
-                            "/tenants"
-                            "GET"))))
-         (values (cdr (assoc 'values data))))
-    values))
-
-(defun* openstack-server-list (&optional &key detail)
-  (when (get-buffer openstack-buffer)
-    (set-buffer openstack-buffer)
-    (let* ((data (openstack-nova-call
-                  (concat "/servers" (when detail "/detail"))
-                  "GET"))
+    (let* ((data (openstack-servers-list))
            (current-point (point))
            (inhibit-read-only t))
       (goto-line 3)
@@ -203,28 +113,6 @@
             do (openstack-item-widget instance))
       (openstack-align)
       (goto-char current-point))))
-
-(defun* openstack-server-reboot1 (id &optional &key (type "SOFT"))
-  (let* ((data (openstack-nova-call
-                (concat "/servers/" (format "%s" id) "/action")
-                "POST"
-                (list :reboot (list :type type)))))))
-
-(defun openstack-server-reboot ()
-  (interactive)
-  (openstack-server-reboot1 (openstack-instance-id))
-  (openstack-server-list-all))
-
-(defun openstack-server-terminate ()
-  (interactive)
-  (openstack-nova-call
-   (concat "/servers/" (format "%s" (openstack-instance-id)))
-   "DELETE")
-  (openstack-server-list-all))
-
-(defun openstack-server-list-all ()
-  (interactive)
-  (openstack-server-list :detail t))
 
 (defun* openstack-server-console-log ()
   (interactive)
@@ -278,18 +166,25 @@
     (completion-in-region beg (point) tenants-alist)))
 
 (defun openstack-headings-widgets ()
+  (flet ((last-element (element)
+                       (if (listp element)
+                           (car (last element))
+                         element)))
+
   (widget-insert (format " %s" 'id))
   (dolist (element (cons 'name openstack-instance-display))
     (widget-insert " | ")
     (widget-insert (format "%s"
-                           element)))
+                           (last-element element))))
   (widget-insert "\n")
   (widget-insert (format " %s" (make-string (length (symbol-name 'id)) ?-)))
   (dolist (element (cons 'name openstack-instance-display))
     (widget-insert " | ")
     (widget-insert (format "%s"
-                           (make-string (length (symbol-name element)) ?-))))
-  (widget-insert "\n"))
+                           (make-string (length
+                                         (symbol-name (last-element element)))
+                                         ?-))))
+  (widget-insert "\n")))
 
 (defun* openstack-item-widget (item &optional (mark " "))
   (widget-insert mark)
@@ -303,7 +198,7 @@
   (dolist (element openstack-instance-display)
     (widget-insert " | ")
     (widget-insert (format "%s"
-                           (cdr (assoc element item)))))
+                           (openstack-multi-assoc element item))))
   (widget-insert "\n")
   (save-excursion
     (let ((inhibit-read-only t))
