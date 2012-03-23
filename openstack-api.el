@@ -28,7 +28,7 @@
   (openstack-call (concat openstack-auth-url "/tokens")
                   "POST"
                   '(("Content-Type" . "application/json"))
-                  kvdata))
+                  kvdata :disable-token-refresh t))
 
 (defun openstack-parse ()
   "Parse the result of a openstack request."
@@ -40,7 +40,18 @@
      (message "openstack: Could not read the response.")
      nil)))
 
-(defun openstack-call (url method headers &optional kvdata)
+(defun openstack-call (url method headers
+                           &optional kvdata
+                           &key disable-token-refresh)
+  (when (and
+         (not disable-token-refresh)
+         (<
+          (time-to-seconds (time-subtract
+                            (date-to-time openstack-token-expiry)
+                            (current-time)))
+          100) ; if there is less that 10min til expiry then renew.
+         (message "Refreshing Openstack Token")
+         (openstack-token-init)))
   (let ((url-request-method method)
         (url-request-extra-headers headers)
         (url-request-data (if kvdata (json-encode kvdata) nil))
@@ -53,6 +64,7 @@
         (let ((data (openstack-parse)))
           (kill-buffer (current-buffer))
           data)))))
+
 
 (defun openstack-nova-call (url method &optional kvdata)
   (openstack-call
