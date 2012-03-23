@@ -29,7 +29,10 @@
   :safe 'stringp
   :group 'openstack-mode)
 
-(defcustom openstack-instance-display '(user_id status (attrs host) (:title ec2 :eval (format "i-%08X" (openstack-multi-assoc 'id item))))
+(defcustom openstack-instance-display '((:title ec2 :eval (format "i-%08X" (openstack-multi-assoc 'id item)))
+                                        (:title name :eval (propertize (format "%s" (cdr (assoc 'name item))) 'face 'openstack-title-face))
+                                        user_id (attrs host) status
+                                        )
   "a list of extra columns to display."
   :type 'sexp
   :group 'openstack-mode)
@@ -188,13 +191,13 @@
                          element)))
 
   (widget-insert (format " %s" 'id))
-  (dolist (element (cons 'name openstack-instance-display))
+  (dolist (element openstack-instance-display)
     (widget-insert " | ")
     (widget-insert (format "%s"
                            (openstack-instance-display-header element))))
   (widget-insert "\n")
   (widget-insert (format " %s" (make-string (length (symbol-name 'id)) ?-)))
-  (dolist (element (cons 'name openstack-instance-display))
+  (dolist (element openstack-instance-display)
     (widget-insert " | ")
     (widget-insert
      (format
@@ -206,19 +209,18 @@
        ?-))))
   (widget-insert "\n")))
 
+
 (defun* openstack-item-widget (item &optional (mark " "))
   (widget-insert mark)
   (widget-insert (format "%s"
                          (cdr (assoc 'id item))))
-  (widget-insert " | ")
-  (widget-insert (propertize
-                  (format "%s"
-                          (cdr (assoc 'name item)))
-                  'face 'openstack-title-face))
   (dolist (element openstack-instance-display)
     (widget-insert " | ")
-    (widget-insert (format "%s"
-                           (openstack-instance-display-widgets element item))))
+    (widget-insert
+     (let ((value (openstack-instance-display-widgets element item)))
+       (if (stringp value)
+           value
+           (format "%s" value)))))
   (widget-insert "\n")
   (save-excursion
     (let ((inhibit-read-only t))
