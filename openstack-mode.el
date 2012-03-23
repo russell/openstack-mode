@@ -29,7 +29,7 @@
   :safe 'stringp
   :group 'openstack-mode)
 
-(defcustom openstack-instance-display '(user_id status (attrs host))
+(defcustom openstack-instance-display '(user_id status (attrs host) (:title ec2 :eval (format "i-%08X" (openstack-multi-assoc 'id item))))
   "a list of extra columns to display."
   :type 'sexp
   :group 'openstack-mode)
@@ -165,6 +165,22 @@
                                 collect (list (cdr (assoc 'name tenant)) count)))))
     (completion-in-region beg (point) tenants-alist)))
 
+(defun openstack-instance-display-header (item)
+  (cond
+   ((and (listp item) (eq :title (car item)))
+    (second item))
+   (t
+    (last-element item))))
+
+(defun openstack-instance-display-widgets (element item)
+  (cond
+   ((and (listp element) (eq :title (car element)))
+    (destructuring-bind (&key title eval)
+        element
+      (eval eval)))
+   (t
+    (openstack-multi-assoc element item))))
+
 (defun openstack-headings-widgets ()
   (flet ((last-element (element)
                        (if (listp element)
@@ -175,15 +191,19 @@
   (dolist (element (cons 'name openstack-instance-display))
     (widget-insert " | ")
     (widget-insert (format "%s"
-                           (last-element element))))
+                           (openstack-instance-display-header element))))
   (widget-insert "\n")
   (widget-insert (format " %s" (make-string (length (symbol-name 'id)) ?-)))
   (dolist (element (cons 'name openstack-instance-display))
     (widget-insert " | ")
-    (widget-insert (format "%s"
-                           (make-string (length
-                                         (symbol-name (last-element element)))
-                                         ?-))))
+    (widget-insert
+     (format
+      "%s"
+      (make-string
+       (length
+        (symbol-name
+         (openstack-instance-display-header element)))
+       ?-))))
   (widget-insert "\n")))
 
 (defun* openstack-item-widget (item &optional (mark " "))
@@ -198,7 +218,7 @@
   (dolist (element openstack-instance-display)
     (widget-insert " | ")
     (widget-insert (format "%s"
-                           (openstack-multi-assoc element item))))
+                           (openstack-instance-display-widgets element item))))
   (widget-insert "\n")
   (save-excursion
     (let ((inhibit-read-only t))
