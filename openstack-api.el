@@ -1,3 +1,6 @@
+(eval-when-compile (require 'cl))
+
+
 (defvar openstack-token nil
   "the openstack token.")
 
@@ -142,3 +145,6 @@
    (format "/servers/%s" (openstack-instance-id))
    "DELETE")
   (openstack-server-list-all))
+
+
+(provide 'openstack-api)
