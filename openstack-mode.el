@@ -1,5 +1,6 @@
 
 (eval-when-compile (require 'cl))
+(require 'openstack-api)
 
 (defgroup openstack-mode nil
   "Openstack mode"
