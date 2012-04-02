@@ -1,5 +1,7 @@
-
 (eval-when-compile (require 'cl))
+
+(require 'osapi)
+
 
 (defgroup openstack-mode nil
   "Openstack mode"
@@ -99,14 +101,14 @@
 
 (defun openstack-server-reboot ()
   (interactive)
-  (openstack-server-reboot1 (openstack-instance-id))
+  (osapi-server-reboot (openstack-instance-id))
   (openstack-server-list-all))
 
 (defun openstack-server-list-all ()
   (interactive)
   (when (get-buffer openstack-buffer)
     (set-buffer openstack-buffer)
-    (let* ((data (openstack-servers-list))
+    (let* ((data (osapi-servers-list))
            (current-point (point))
            (inhibit-read-only t))
       (goto-line 3)
@@ -123,7 +125,7 @@
         (switch-to-buffer openstack-console-log-buffer)
         (when (get-buffer openstack-console-log-buffer)
           (set-buffer openstack-console-log-buffer)
-          (let* ((data (openstack-nova-call
+          (let* ((data (osapi-nova-call
                         "/extras/consoles"
                         "POST"
                         (list :console (list :type "text"
@@ -144,7 +146,7 @@
    (widget-create 'editable-field
                   :action (lambda (wid &rest ignore)
                             (message (widget-value wid))
-                            (openstack-token-init (widget-value wid))
+                            (osapi-token-init (widget-value wid))
                             (openstack-server-list-all))
                   :format "Tenant: %v"
                   :help-echo "TAB: complete field; RET: enter value"
@@ -163,7 +165,7 @@
          (beg (save-excursion
                (search-backward predicate)))
          (tenants-alist (let ((count 0))
-                          (loop for tenant across (openstack-tenants-list)
+                          (loop for tenant across (osapi-tenants-list)
                                 do (setq count (1+ count))
                                 collect (list (cdr (assoc 'name tenant)) count)))))
     (completion-in-region beg (point) tenants-alist)))
@@ -320,7 +322,7 @@ instance at point."
         (define-key map "q" 'openstack-kill-buffer)
         (define-key map "l" 'openstack-server-console-log)
         (define-key map "R" 'openstack-server-reboot)
-        (define-key map "K" 'openstack-server-terminate)
+        (define-key map "K" 'osapi-server-terminate)
         (define-key map (kbd "C-x C-f") 'openstack-ido-find-file)
         map))
 
@@ -341,7 +343,7 @@ instance at point."
   (make-local-variable 'openstack-form-widgets)
   (setq mode-name "Openstack")
   (openstack-buffer-setup)
-  (openstack-token-init)
+  (osapi-token-init)
   (openstack-buffer-heading)
   (openstack-server-list-all))
 
