@@ -1,0 +1,2 @@
+* openstack-mode
+  This mode adds ability to control openstack infrastructure.
