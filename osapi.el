@@ -170,10 +170,13 @@
 
 (defun osapi-server-terminate ()
   (interactive)
-  (osapi-nova-call
-   (format "/servers/%s" (openstack-instance-id))
-   "DELETE")
-  (openstack-server-list-all))
+  (when (yes-or-no-p
+         (format "are you sure you would like to terminate instance %s "
+                 (openstack-instance-id)))
+    (osapi-nova-call
+     (format "/servers/%s" (openstack-instance-id))
+     "DELETE")
+    (openstack-server-list-all)))
 
 
 (provide 'osapi)

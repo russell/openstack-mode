@@ -23,6 +23,7 @@
 ;; along with GNU Emacs.  If not, see <http://www.gnu.org/licenses/>.
 
 (eval-when-compile (require 'cl))
+(require 'openstack-api)
 
 (require 'osapi)
 
