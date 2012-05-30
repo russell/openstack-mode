@@ -23,7 +23,6 @@
 ;; along with GNU Emacs.  If not, see <http://www.gnu.org/licenses/>.
 
 (eval-when-compile (require 'cl))
-(require 'openstack-api)
 
 (require 'osapi)
 
@@ -84,8 +83,16 @@
   "Face for Openstack file titles."
   :group 'openstack-faces)
 
+(defface openstack-instance-title-face
+  '((t (:height 1.4 :bold t)))
+  "Face used to display instance title."
+  :group 'openstack-faces)
+
 (defconst openstack-buffer "*Openstack*"
   "Openstack buffer name.")
+
+(defconst openstack-instance-buffer "*Openstack: Instance*"
+  "Openstack instance buffer name.")
 
 (defconst openstack-console-log-buffer "*Openstack: Console Log*"
   "Openstack console log buffer name.")
@@ -317,6 +324,13 @@ If point is on a group name, this function operates on that group."
       (forward-line -1))
     (openstack-align)))
 
+(defun openstack-instance-details ()
+  "Open the current instance details."
+  (interactive)
+  (let ((instance (get-text-property (line-beginning-position)
+                                     'openstack-properties)))
+    (when instance (openstack-instance-details1 instance))))
+
 (defun openstack-ido-find-file ()
   "Like `ido-find-file', but default to the directory of the
 instance at point."
@@ -372,6 +386,41 @@ instance at point."
   (openstack-buffer-heading)
   (openstack-server-list-all))
 
+(defun openstack-assoc (key alist)
+  "Return a value from the alist or the string NONE"
+   (or (assoc-default key alist #'equal "NONE") "NONE"))
+
+(defun openstack-labled-assoc (key alist)
+  "Return a text formated string with a label."
+  (concat
+   (symbol-name key)
+   ": "
+   (format "%s" (openstack-assoc key alist))))
+
+(defun openstack-instance-mode ()
+  (setq truncate-lines t)
+  (use-local-map openstack-mode-map)
+  (setq major-mode 'openstack-mode)
+  (make-local-variable 'openstack-form-widgets)
+  (setq mode-name "Openstack: Instance")
+  (openstack-buffer-setup)
+  (insert
+   (propertize (openstack-assoc 'name openstack-instance)
+               'face 'openstack-instance-title-face)
+   "\n"
+   (format "%s" (openstack-labled-assoc 'id openstack-instance))
+   "\n"
+   (openstack-labled-assoc 'tenant_id openstack-instance)
+   "\n"
+   (openstack-labled-assoc 'key_name openstack-instance)
+   "\n"
+   (openstack-labled-assoc 'user_id openstack-instance)
+   "\n"
+   (openstack-labled-assoc 'updated openstack-instance)
+   "\n"
+   (openstack-labled-assoc 'status openstack-instance)
+   ))
+
 (put 'openstack-mode 'mode-class 'special)
 
 (defun openstack ()
@@ -379,5 +428,12 @@ instance at point."
   (switch-to-buffer openstack-buffer)
   (if (not (eq major-mode 'openstack-mode))
       (openstack-mode)))
+
+(defun openstack-instance-details1 (instance)
+  (switch-to-buffer openstack-instance-buffer)
+  (make-local-variable 'openstack-instance)
+  (setq openstack-instance instance)
+  (if (not (eq major-mode 'openstack-instance-mode))
+      (openstack-instance-mode)))
 
 (provide 'openstack-mode)
