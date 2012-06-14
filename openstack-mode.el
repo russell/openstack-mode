@@ -214,7 +214,9 @@
    ((and (listp element) (eq :title (car element)))
     (destructuring-bind (&key title eval)
         element
-      (eval eval)))
+      (condition-case nil
+          (eval eval)
+        (error nil))))
    (t
     (openstack-multi-assoc element item))))
 
