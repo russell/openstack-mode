@@ -140,7 +140,7 @@
   (interactive)
   (when (get-buffer openstack-buffer)
     (set-buffer openstack-buffer)
-    (let* ((data (osapi-servers-list))
+    (let* ((data (osapi-servers-list t))
            (current-point (point))
            (inhibit-read-only t))
       (goto-line 3)
@@ -160,7 +160,7 @@
           (let* ((data (osapi-nova-call
                         "/extras/consoles"
                         "POST"
-                        (list :console (list :type "text"
+                        :kvdata (list :console (list :type "text"
                                              :server_id instance-id))))
                  (current-point (point))
                  (inhibit-read-only t))

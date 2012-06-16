@@ -34,18 +34,19 @@
 (defvar osapi-service-catalog nil
   "the openstack service catalog.")
 
-(defun osapi-keystone-call (url method &optional kvdata)
-  (osapi-call (concat openstack-auth-url url)
+(defun* osapi-keystone-call (url method &key kvdata admin)
+  (osapi-call (concat (osapi-service-catalog-filter "identity" :url (if admin 'adminURL 'publicURL))
+                      url)
                   method
                   `(("x-auth-token" . ,osapi-token)
                     ("Content-Type" . "application/json"))
-                  kvdata))
+                  :kvdata kvdata))
 
 (defun osapi-keystone-auth (kvdata)
   (osapi-call (concat openstack-auth-url "/tokens")
                   "POST"
                   '(("Content-Type" . "application/json"))
-                  kvdata :disable-token-refresh t))
+                  :kvdata kvdata :disable-token-refresh t))
 
 (defun osapi-parse ()
   "Parse the result of a openstack request."
@@ -55,11 +56,10 @@
         (json-read))
     (error
      (message "openstack: Could not read the response.")
+     (message (buffer-string))
      nil)))
 
-(defun osapi-call (url method headers
-                           &optional kvdata
-                           &key disable-token-refresh)
+(defun* osapi-call (url method headers &key kvdata disable-token-refresh)
   (when (and
          (not disable-token-refresh)
          (<
@@ -83,19 +83,17 @@
           data)))))
 
 
-(defun osapi-nova-call (url method &optional kvdata)
+(defun* osapi-nova-call (url method &key kvdata admin)
   (osapi-call
-   (concat (osapi-service-catalog-filter "compute")
+   (concat (osapi-service-catalog-filter "compute" :url (if admin 'adminURL 'publicURL))
            url)
    method
    `(("x-auth-project-id" . ,(cdr (assoc 'name openstack-tenant)))
      ("x-auth-token" . ,osapi-token)
      ("Content-Type" . "application/json"))
-   kvdata))
+   :kvdata kvdata))
 
-(defun* osapi-service-catalog-filter (type &optional &key
-                                               region
-                                               (url 'publicURL))
+(defun* osapi-service-catalog-filter (type &key region (url 'publicURL))
   "return the first url that matches the filter"
   (car
    (loop for endpoint across
@@ -148,6 +146,14 @@
                 "GET")))
          data))
 
+(defun osapi-user-details (id)
+  (let* ((data (cdr (assoc 'tenants
+                           (osapi-keystone-call
+                            (concat "/users/" id)
+                            "GET" :admin t))))
+         (values (cdr (assoc 'values data))))
+    values))
+
 (defun osapi-tenants-list ()
   (let* ((data (cdr (assoc 'tenants
                            (osapi-keystone-call
@@ -158,7 +164,7 @@
 
 (defun* osapi-servers-list (&optional (detail nil))
   (let* ((data (osapi-nova-call
-                (concat "/admin/servers")
+                (concat "/servers" (when detail "/detail"))
                 "GET")))
          data))
 
@@ -166,7 +172,7 @@
   (let* ((data (osapi-nova-call
                 (format "/servers/%s/action" id)
                 "POST"
-                (list :reboot (list :type type)))))))
+                :kvdata (list :reboot (list :type type)))))))
 
 (defun osapi-server-terminate ()
   (interactive)
